@@ -1,0 +1,81 @@
+---
+title: "Untitled"
+author: "Hasan"
+date: "December 25, 2015"
+output: html_document
+---
+
+#Executive Summary
+Exercise devices such as *Jawbone Up*, *Nike FuelBand*, and *Fitbit* have made it so that personal health data can be tracked over time to find interesting behavioral patterns. This brief report aims at building a model on the [Weight Lifting Exercise Dataset](http://groupware.les.inf.puc-rio.br/har) in order to predict the exercise chosen based on various covariates. 
+
+#Loading the data
+The training and testing datasets can be downloaded from the url or directly fetched through R, as done below.
+```{r, cache=TRUE}
+directory <- "C:/Users/Crash_OverRide/Documents/Data Science/Coursera/Data_Science_Specialization/Practical_ML"
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="./data/train.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="./data/test.csv")
+directory <- "C:/Users/Crash_OverRide/Documents/Data Science/Coursera/Data_Science_Specialization/Practical_ML"
+training <- read.csv(paste0(directory,"/data/train.csv"),na.strings = c("NA", "#DIV/0!"))
+testing <- read.csv(paste0(directory,"/data/test.csv"),na.strings = c("NA", "#DIV/0!"))
+
+#remove mostly missing variables
+mostlyNA <- sapply(training, function(x) mean(is.na(x))) > 0.8
+training <- training[,mostlyNA==F]
+remove_cols <- c("user_name", "cvtd_timestamp", "new_window",
+                 "raw_timestamp_part_1")
+training <- training[,-which(names(training) %in% remove_cols)]
+
+#partition into training and validation
+library(caret)
+inTrain <- createDataPartition(training$classe, p=0.9, list=FALSE)
+training <- training[inTrain, ]
+validation <- training[-inTrain, ]
+dim(training); dim(testing)
+```
+We have just under 18k of the original rows and 159 covariates to train our model and 20 observations to predict in our test set. Manually scanning this large predictor space would be tedious so we've removed columns with at least 80% missing rows. Additionally, the training set has been divided into training and validation (90-10 split). 
+
+#Variable Reduction
+In order to reduce the covariate space that we have to explore we can simply remove predictors that have near zero variability. 
+```{r, cache=TRUE}
+nzv <- nearZeroVar(training, saveMetrics=TRUE)
+training <- training[,nzv$nzv==FALSE]
+validation <- validation[,nzv$nzv==FALSE]
+testing <- testing[,nzv$nzv==FALSE]
+ncol(training)
+```
+Now we have gone down from the original 159 predictors to 55. 
+
+#Model Building
+Instead of further reducing down the input variables we can simply throw this bag of predictors at our random forest algorithm and let it decide which ones are important using the gini criterion. 
+```{r, cache=TRUE}
+set.seed(12345)
+library(randomForest)
+fit <- randomForest(classe ~ ., data=training)
+```
+
+We can take a look at classification accuracy based on the hold-out validation set to get a sense of out-of-sample performance. 
+```{r, cache=TRUE}
+pred <- predict(fit, validation, type="class")
+confusionMatrix(pred,validation$classe)
+```
+
+The misclassification error for validation set is 0. We can see that the random forest algorithm was able to correctly predict all classes in our validation set.
+
+#Predicting Test Data
+```{r, cache=TRUE}
+pred_test <- predict(fit, testing, type = "class")
+
+# Write the results to a text file for submission
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0(directory,"/problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+#pml_write_files(pred_test)
+```
+
+
+
