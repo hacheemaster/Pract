@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Using personal health data to predict behavior"
 author: "Hasan"
 date: "December 25, 2015"
 output: html_document
